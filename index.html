@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Духи книги</title>
+    <style>
+        body { margin: 0; padding: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: url('domknigi.jpg'); background-size: cover; background-position: center; font-family: sans-serif; color: white; overflow-x: hidden; }
+        .bg-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); z-index: 1; }
+        .card { position: relative; z-index: 10; background: #ffffff; width: 90%; max-width: 360px; border: 5px solid #000; border-radius: 4px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); text-align: center; animation: floatIn 0.8s ease-out forwards; display: flex; flex-direction: column; padding-bottom: 20px; overflow: hidden; }
+        @keyframes floatIn { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .media-container { position: relative; width: 100%; aspect-ratio: 4/3; overflow: hidden; border-bottom: 3px solid #000; }
+        img.cover { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.5s ease; }
+        video.bg-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+        .is-playing img.cover { opacity: 0; }
+        .is-playing video.bg-video { opacity: 1; }
+        .content { padding: 20px; }
+        h1 { color: #000; font-size: 1.8rem; margin-bottom: 5px; line-height: 1.1; font-weight: 800; letter-spacing: -0.5px; font-style: italic; }
+        p.sub { color: #333; font-size: 0.9rem; font-weight: 600; }
+        
+        /* Скрываем нативный плеер полностью */
+        audio.hidden-player { display: none !important; }
+
+        .main-btn { background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); border: 2px solid #000; width: calc(100% - 40px); margin: 15px 20px 10px; padding: 14px; font-size: 1.1rem; font-weight: bold; color: #fff; text-transform: uppercase; letter-spacing: 1px; border-radius: 8px; cursor: pointer; transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); box-shadow: 3px 3px 0px #000; outline: none; -webkit-tap-highlight-color: transparent; }
+        .main-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #000; }
+        .main-btn.playing { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); box-shadow: 3px 3px 0px #000; }
+        .hint { font-size: 0.7rem; color: #666; margin-top: 10px; text-align: center; padding: 0 20px; }
+    </style>
+</head>
+<body>
+<div class="bg-overlay"></div>
+<div class="card" id="cardElement">
+    <div class="media-container">
+        <img src="domknigi.jpg" alt="Обложка Духи Книги" class="cover">
+        <!-- КРИТИЧНО ДЛЯ IOS: muted playsinline loop -->
+        <video class="bg-video" muted playsinline loop preload="auto">
+            <source src="video.mp4" type="video/mp4">
+        </video>
+    </div>
+    <div class="content">
+        <h1>Духи книги</h1>
+        <p class="sub">A.Klimashevsky feat DWisepoems</p>
+    </div>
+    
+    <!-- Единственная точка входа -->
+    <button id="bigBtn" class="main-btn" onclick="handleUserInteraction()">▶ ПОСЛУШАТЬ ТРЕК</button>
+    
+    <audio id="music" class="hidden-player" preload="auto">
+        <source src="A_._Klimashevsky_feat_DWisepoems–Spirits_of_the_book.mp3" type="audio/mpeg">
+    </audio>
+    
+    <div class="hint">Нажмите кнопку выше для запуска музыки и видео</div>
+</div>
+<script>
+    const m = document.getElementById('music');
+    const btn = document.getElementById('bigBtn');
+    const card = document.getElementById('cardElement');
+    const bgVideo = document.querySelector('.bg-video');
+    let playing = false;
+
+    // Функция обработки взаимодействия пользователя
+    function handleUserInteraction() {
+        if (!playing) {
+            // 1. Пытаемся запустить музыку
+            const playPromiseMusic = m.play();
+            
+            if (playPromiseMusic !== undefined) {
+                playPromiseMusic.then(() => {
+                    // Музыка запустилась успешно
+                    
+                    // 2. СРАЗУ ЖЕ пытаемся запустить видео
+                    // Важно: вызываем .play() синхронно после успеха музыки
+                    const playPromiseVideo = bgVideo.play();
+                    
+                    if (playPromiseVideo !== undefined) {
+                        playPromiseVideo.then(() => {
+                            console.log("Видео запущено!");
+                            setPlayingState(true);
+                        }).catch(err => {
+                            console.warn("iOS заблокировал видео:", err.name);
+                            // Если видео не запустилось, но музыка играет - оставляем статус Playing
+                            setPlayingState(true); 
+                        });
+                    } else {
+                         setPlayingState(true);
+                    }
+                    
+                }).catch(err => {
+                    console.error("Ошибка музыки:", err);
+                    alert("Не удалось запустить музыку. Проверьте соединение.");
+                });
+            }
+        } else {
+            // Пауза
+            m.pause();
+            bgVideo.pause();
+            setPlayingState(false);
+        }
+    }
+
+    function setPlayingState(isPlaying) {
+        playing = isPlaying;
+        if (isPlaying) {
+            btn.classList.add('playing');
+            btn.innerText = '⏸ ПАУЗА';
+            card.classList.add('is-playing');
+        } else {
+            btn.classList.remove('playing');
+             if(m.currentTime === 0 || m.paused && m.duration > 0 && m.currentTime < m.duration) {
+                 btn.innerText = '▶ ПРОДОЛЖИТЬ';
+             }
+             card.classList.remove('is-playing');
+        }
+    }
+
+    // Синхронизация при завершении трека
+    m.addEventListener('ended', () => {
+        playing = false;
+        btn.innerText = '↻ СЫГРАТЬ СНОВА';
+        btn.classList.remove('playing');
+        card.classList.remove('is-playing');
+        bgVideo.pause();
+        bgVideo.currentTime = 0;
+    });
+</script>
+</body>
+</html>
